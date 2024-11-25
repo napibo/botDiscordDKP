@@ -1,0 +1,55 @@
+import discord
+from discord.ext import commands
+from googleapiclient.discovery import build
+from google.oauth2.service_account import Credentials
+
+# Configuraci贸n de intents
+intents = discord.Intents.default()  # Carga los intents por defecto
+intents.messages = True  # Asegura que pueda manejar mensajes
+intents.message_content = True  # Necesario para leer el contenido de los mensajes
+
+# Configuraci贸n del bot
+TOKEN = 'Insertar Token aqui'
+
+# Inicializaci贸n del bot con intents
+bot = commands.Bot(command_prefix='!', intents=intents)
+
+# Configuraci贸n de Google Sheets
+SCOPES = ['https://www.googleapis.com/auth/spreadsheets.readonly']
+SERVICE_ACCOUNT_FILE = 'c:\API\clave.json'
+SPREADSHEET_ID = '1Ug8wYoeNbFYljTbT6655Al9WuUkPAXYiDgEKIOoVVZc'
+RANGE_NAME = 'DKP!A1:D100'  # Rango de datos
+
+# Autenticaci贸n con Google Sheets
+credentials = Credentials.from_service_account_file(
+    SERVICE_ACCOUNT_FILE, scopes=SCOPES)
+service = build('sheets', 'v4', credentials=credentials)
+sheet = service.spreadsheets()
+
+# Comando para obtener puntos del usuario que lo invoca
+@bot.command()
+async def dkp(ctx):
+    try:
+        # Obtener el nombre del usuario que ejecuta el comando
+        nombre = str(ctx.author.name)  # Nombre del usuario en Discord
+
+        # Leer datos del rango en Google Sheets
+        result = sheet.values().get(spreadsheetId=SPREADSHEET_ID, range=RANGE_NAME).execute()
+        values = result.get('values', [])
+
+        # Buscar al usuario en la lista
+        for fila in values:
+            if fila[0].lower() == nombre.lower():  # Comparaci贸n insensible a may煤sculas
+                await ctx.author.send(f"Hola {nombre}, tienes {fila[3]} DKPs.")
+                return
+        
+        # Si no se encuentra al usuario
+        await ctx.author.send(f"No se encontraron puntos para {nombre}.")
+    except Exception as e:
+        await ctx.author.send(f"Error al obtener tus puntos: {e}")
+
+    # Confirmar al usuario que el mensaje fue enviado como DM
+    await ctx.message.add_reaction("馃摡")  # Agrega una reacci贸n indicando que se envi贸 el DM
+
+# Iniciar el bot
+bot.run(TOKEN)
